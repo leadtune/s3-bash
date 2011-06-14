@@ -1,0 +1,41 @@
+#!/bin/sh
+
+# To use, place in the same directory as s3-get. It accepts the same parameters
+
+S3_GET=$(dirname $0)/s3-get
+if [ $# = 0 ]; then
+  echo "s3-ls receives the same parameters as s3-get."
+  echo
+  $S3_GET -h
+  exit 1
+fi
+
+TMP_PREFIX=/tmp/s3-ls-$$
+
+$S3_GET "$@" > $TMP_PREFIX.xml
+cat > $TMP_PREFIX.xsl << ENDOFXSL
+<?xml version="1.0" encoding="utf-8"?>
+<xsl:stylesheet xmlns:xsl="http://www.w3.org/1999/XSL/Transform" xmlns:a="http://s3.amazonaws.com/doc/2006-03-01/" version="1.0">
+<xsl:output method="text"/>
+<xsl:variable name="newline"><xsl:text>
+</xsl:text></xsl:variable>
+<xsl:variable name="tab"><xsl:text>&#x09;</xsl:text></xsl:variable>
+<xsl:template match="a:ListBucketResult" >
+<xsl:value-of select="a:Name/text()"/>:
+<xsl:for-each select="a:Contents">
+<xsl:sort select="a:Key/text()"/>
+<xsl:value-of select="a:StorageClass/text()"/><xsl:value-of select="\$tab"/>
+<xsl:value-of select="a:ETag/text()"/><xsl:value-of select="\$tab"/>
+<xsl:value-of select="a:Owner/a:DisplayName/text()"/><xsl:value-of select="\$tab"/>
+<xsl:value-of select="a:Size/text()"/><xsl:value-of select="\$tab"/>
+<xsl:value-of select="a:LastModified/text()"/><xsl:value-of select="\$tab"/>
+<xsl:value-of select="a:Key/text()"/><xsl:value-of select="\$newline"/>
+</xsl:for-each>
+</xsl:template>
+<xsl:template match="text()"></xsl:template>
+</xsl:stylesheet>
+ENDOFXSL
+
+xsltproc $TMP_PREFIX.xsl $TMP_PREFIX.xml
+
+rm -f $TMP_PREFIX.x?l
